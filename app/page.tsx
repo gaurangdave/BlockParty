@@ -58,7 +58,7 @@ export default function Home() {
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-transparent">
       <StatusIndicator isInteractive={isInteractive} />
 
-      <div className="rounded-xl border border-white/10 bg-black/50 p-8 text-center backdrop-blur-md">
+      <div className="rounded-xl border border-white/10 bg-black px-8 py-8 text-center">
         <h1 className="text-2xl font-bold tracking-wider text-white">
           BlockParty Engine Initialized
         </h1>
