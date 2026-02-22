@@ -1,0 +1,51 @@
+// In your firestore.rules file
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Check for admin role directly from the token
+    function isAdmin() {
+      return isAuth() && request.auth.token.isAdmin == true;
+    }
+
+    // Check if the user is the trainer who owns the data
+    function isOwner(trainerId) {
+      return isAuth() && request.auth.token.role == 'trainer' && request.auth.uid == trainerId;
+    }
+    
+    // Check if the user is a client linked to the trainer who owns the data
+    function isTheirClient(trainerId) {
+       return isAuth() && request.auth.token.role == 'client' && request.auth.token.trainerId == trainerId;
+    }
+
+    match /users/{userId} {
+      // Allow a user to read their own document.
+      // Allow an admin to read any user's document.
+      allow read: if isAdmin() || (request.auth.uid == userId);
+
+      // Only allow a user to update their own document.
+      // Creation is handled by the backend Cloud Function.
+      allow update: if request.auth.uid == userId;
+    }
+
+    match /clients/{clientId} {
+      // An Admin can read anything.
+      // A Trainer can access their own client data.
+      // A Client can access their own data (if their trainerId matches).
+      allow read, write: if isAdmin() || isOwner(resource.data.trainerId) || isTheirClient(resource.data.trainerId);
+    }
+
+    match /leads/{leadId} {
+      // A trainer can read/write their own leads. An admin can do anything.
+      // For create: check request.resource.data.trainerId
+      // For read/update/delete: check resource.data.trainerId (existing document)
+      allow create: if isAdmin() || (isAuth() && request.auth.token.role == 'trainer' && request.resource.data.trainerId == request.auth.uid);
+      allow read, update, delete: if isAdmin() || (resource != null && isOwner(resource.data.trainerId));
+    }
+  }
+}

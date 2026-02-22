@@ -3,6 +3,9 @@
 import { useEffect, useRef } from "react";
 import { useBlockParty } from "../src/hooks/useBlockParty";
 import StatusIndicator from "./components/StatusIndicator";
+import dynamic from "next/dynamic";
+
+const Scene = dynamic(() => import("../src/components/Scene"), { ssr: false });
 
 export default function Home() {
   const { isInteractive, toggleInteraction, error } = useBlockParty();
@@ -58,19 +61,15 @@ export default function Home() {
     <main className="flex min-h-screen w-full flex-col items-center justify-center bg-transparent">
       <StatusIndicator isInteractive={isInteractive} />
 
-      <div className="rounded-xl border border-white/10 bg-black px-8 py-8 text-center">
-        <h1 className="text-2xl font-bold tracking-wider text-white">
-          BlockParty Engine Initialized
-        </h1>
-        <p className="mt-2 text-sm text-gray-300">
-          Overlay Active • Awaiting Commands
-        </p>
-        {error && <p className="mt-2 text-xs text-red-400">Error: {error}</p>}
-        <p className="mt-4 text-xs text-gray-400">
-          Hold <kbd className="px-1.5 py-0.5 bg-white/10 rounded">Alt</kbd> for
-          ghost mode
-        </p>
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <Scene />
       </div>
+
+      {error && (
+        <div className="absolute top-16 rounded-xl border border-red-500/30 bg-black/80 px-4 py-2 text-center backdrop-blur-sm">
+          <p className="text-xs text-red-400">Error: {error}</p>
+        </div>
+      )}
     </main>
   );
 }
