@@ -42,8 +42,16 @@ export function ComicBubble({
   const { sendReply } = useFirebaseMessages();
   const [replyText, setReplyText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const typedText = useTypewriter(messageText, 40);
+
+  // Auto-scroll when new text is added
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [typedText]);
 
   // Auto-focus input when opening
   useEffect(() => {
@@ -75,12 +83,12 @@ export function ComicBubble({
 
   return (
     <Html
-      position={[0, 2.8, 0]} // positioned well above the character's head
+      position={[0, 2.4, 0]} // closer to the character's head
       center
       zIndexRange={[100, 0]}
       style={{
         pointerEvents: isInteractive ? "auto" : "none",
-        width: "250px",
+        width: "300px", // Use fixed width for the HTML wrapper to give it a solid boundary
       }}
     >
       <motion.div
@@ -92,8 +100,13 @@ export function ComicBubble({
           stiffness: 260,
           damping: 20,
         }}
-        className="relative border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-black"
-        style={{ fontFamily: "'Inter', sans-serif", backgroundColor: "#fff" }}
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-black flex flex-col"
+        style={{
+          fontFamily: "'Inter', sans-serif",
+          backgroundColor: "#fff",
+          width: "300px", // Give the container a strict width
+          maxHeight: "350px", // Cap the height
+        }}
         onPointerDown={(e) => {
           // stop R3F drag events from firing when interacting with bubble UI
           e.stopPropagation();
@@ -107,14 +120,20 @@ export function ComicBubble({
         >
           ✕
         </button>
-        <div className="min-h-[60px] mb-3 pr-4 font-medium text-sm">
+        <div
+          ref={scrollRef}
+          className="mb-3 pr-4 font-medium text-sm overflow-y-auto overflow-x-hidden wrap-break-word"
+          style={{
+            maxHeight: "200px", // give the text area a scrollable limit
+          }}
+        >
           {typedText}
           {typedText.length < messageText.length && (
             <span className="w-2 h-4 bg-black inline-block ml-1 animate-pulse" />
           )}
         </div>
 
-        <div className="flex bg-gray-100 rounded-full p-1 border-2 border-transparent focus-within:border-black transition-colors">
+        <div className="flex bg-gray-100 rounded-full p-1 border-2 border-transparent focus-within:border-black transition-colors shrink-0">
           <input
             ref={inputRef}
             type="text"
