@@ -2,7 +2,10 @@ import { useRef, useMemo, useState } from "react";
 import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
 import { useBox } from "@react-three/cannon";
 import * as THREE from "three";
+import { Html } from "@react-three/drei";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { useMessagesStore } from "../store/useMessagesStore";
+import { ComicBubble } from "./ComicBubble";
 
 // A simple deterministic pseudo-random generator based on an ID
 // or just simple random colors.
@@ -43,6 +46,12 @@ export function VoxelAvatar({
   const { viewport } = useThree();
   const isInteractive = useSettingsStore((state) => state.isInteractive);
   const [isDragging, setIsDragging] = useState(false);
+  const [isBubbleOpen, setIsBubbleOpen] = useState(false);
+
+  const messages = useMessagesStore((state) => state.messages);
+  const userIdStr = id.toString();
+  const message = messages[userIdStr];
+  const hasUnread = message ? !message.isRead : false;
 
   // Memoize randomized colors so they don't change on re-renders
   const colors = useMemo(() => {
@@ -134,7 +143,7 @@ export function VoxelAvatar({
 
       // 2. Occasional Hop / Walk
       // Random chance to move
-      if (enableRandomWalk) {
+      if (enableRandomWalk && !isBubbleOpen) {
         if (Math.random() < 0.005) {
           // 0.5% chance per frame (~once every few seconds)
           // Hop upward slightly
@@ -218,11 +227,21 @@ export function VoxelAvatar({
     document.body.style.cursor = "grab";
   };
 
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    if (!isInteractive) return;
+    e.stopPropagation();
+    // Use delta to distinguish between click and drag
+    if (e.delta <= 2 && message) {
+      setIsBubbleOpen(true);
+    }
+  };
+
   return (
     <group
       ref={ref as any}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
+      onClick={handleClick}
       onPointerOver={(e) => {
         e.stopPropagation();
         document.body.style.cursor = isDragging ? "grabbing" : "grab";
@@ -235,6 +254,24 @@ export function VoxelAvatar({
       }}
     >
       <group ref={internalGroupRef}>
+        {/* Floating Notification */}
+        {hasUnread && !isBubbleOpen && (
+          <Html position={[0, 1.2, 0]} center zIndexRange={[50, 0]}>
+            <div className="animate-bounce bg-yellow-400 text-black font-extrabold border-2 border-black rounded-full w-6 h-6 flex items-center justify-center pointer-events-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-sm">
+              !
+            </div>
+          </Html>
+        )}
+
+        {/* Comic Bubble */}
+        {isBubbleOpen && message && (
+          <ComicBubble
+            userId={userIdStr}
+            messageText={message.text}
+            onClose={() => setIsBubbleOpen(false)}
+          />
+        )}
+
         {/* Head */}
         <group position={[0, 0.75, 0]}>
           <mesh castShadow receiveShadow>

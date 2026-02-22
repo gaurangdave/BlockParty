@@ -7,6 +7,7 @@ import { Physics, usePlane } from "@react-three/cannon";
 import { VoxelAvatar } from "./VoxelAvatar";
 import { useBlockPartySync } from "../hooks/useBlockPartySync";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { useFirebaseMessages } from "../hooks/useFirebaseMessages";
 
 function Floor() {
   const { viewport } = useThree();
@@ -46,6 +47,7 @@ function Floor() {
 }
 
 export default function Scene() {
+  useFirebaseMessages(); // Initialize messages listener
   const { activeUsers } = useBlockPartySync();
   const movementEnabled = useSettingsStore((state) => state.movementEnabled);
   const setMovementEnabled = useSettingsStore(
