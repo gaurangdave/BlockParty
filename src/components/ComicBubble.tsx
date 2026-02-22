@@ -75,7 +75,7 @@ export function ComicBubble({
 
   return (
     <Html
-      position={[0, 1.8, 0]} // positioned above the character's head
+      position={[0, 2.8, 0]} // positioned well above the character's head
       center
       zIndexRange={[100, 0]}
       style={{
@@ -92,8 +92,8 @@ export function ComicBubble({
           stiffness: 260,
           damping: 20,
         }}
-        className="relative bg-white border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-black"
-        style={{ fontFamily: "'Inter', sans-serif" }}
+        className="relative border-4 border-black rounded-2xl p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] text-black"
+        style={{ fontFamily: "'Inter', sans-serif", backgroundColor: "#fff" }}
         onPointerDown={(e) => {
           // stop R3F drag events from firing when interacting with bubble UI
           e.stopPropagation();
@@ -136,9 +136,10 @@ export function ComicBubble({
 
         {/* Comic Tail */}
         <div
-          className="absolute left-1/2 -bottom-4 w-4 h-4 bg-white border-l-4 border-b-4 border-black"
+          className="absolute left-1/2 -bottom-4 w-4 h-4 border-l-4 border-b-4 border-black"
           style={{
             transform: "translateX(-50%) rotate(-45deg)",
+            backgroundColor: "#fff",
           }}
         />
       </motion.div>
