@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrthographicCamera, ContactShadows } from "@react-three/drei";
 import { Physics, usePlane } from "@react-three/cannon";
 import { VoxelAvatar } from "./VoxelAvatar";
 import { useBlockPartySync } from "../hooks/useBlockPartySync";
+import { useSettingsStore } from "../store/useSettingsStore";
 
 function Floor() {
   const { viewport } = useThree();
@@ -46,7 +47,10 @@ function Floor() {
 
 export default function Scene() {
   const { activeUsers } = useBlockPartySync();
-  const [enableRandomWalk, setEnableRandomWalk] = useState(true);
+  const movementEnabled = useSettingsStore((state) => state.movementEnabled);
+  const setMovementEnabled = useSettingsStore(
+    (state) => state.setMovementEnabled,
+  );
 
   return (
     <div
@@ -60,10 +64,10 @@ export default function Scene() {
       {/* UI Overlay for Toggle */}
       <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 10 }}>
         <button
-          onClick={() => setEnableRandomWalk((prev) => !prev)}
+          onClick={() => setMovementEnabled(!movementEnabled)}
           className="rounded-full bg-black/50 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-black/70 border border-white/10"
         >
-          {enableRandomWalk ? "🚶 Random Walk: ON" : "🧍 Random Walk: OFF"}
+          {movementEnabled ? "🚶 Random Walk: ON" : "🧍 Random Walk: OFF"}
         </button>
       </div>
 
@@ -87,7 +91,7 @@ export default function Scene() {
               id={user.id}
               position={user.position}
               colorPalette={user.colorPalette}
-              enableRandomWalk={enableRandomWalk}
+              enableRandomWalk={movementEnabled}
             />
           ))}
         </Physics>

@@ -13,12 +13,14 @@ body {
   height: 100%;
   width: 100%;
   overflow: hidden; /* Prevent scrolling on the overlay */
+  pointer-events: none; /* VERY IMPORTANT: Let clicks reach React wrapper */
 }
 
 /* Ensure Next.js root div is transparent */
 #__next,
 #__next > * {
   background: transparent !important;
+  pointer-events: auto; /* Re-enable for the app itself */
 }
 
 /* Universal transparency enforcement */

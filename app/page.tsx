@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useBlockParty } from "../src/hooks/useBlockParty";
+import { useSettingsStore } from "../src/store/useSettingsStore";
 import StatusIndicator from "./components/StatusIndicator";
 import dynamic from "next/dynamic";
 import { ref, push, set } from "firebase/database";
@@ -10,7 +11,8 @@ import { database } from "../src/lib/firebase";
 const Scene = dynamic(() => import("../src/components/Scene"), { ssr: false });
 
 export default function Home() {
-  const { isInteractive, toggleInteraction, error } = useBlockParty();
+  const { toggleInteraction, error } = useBlockParty();
+  const isInteractive = useSettingsStore((state) => state.isInteractive);
   const isAltPressedRef = useRef(false);
 
   console.log("🎨 Home component render, isInteractive:", isInteractive);
@@ -74,7 +76,7 @@ export default function Home() {
   }, [toggleInteraction]);
 
   return (
-    <main className="flex min-h-screen w-full flex-col items-center justify-center bg-transparent pointer-events-none">
+    <main className="flex min-h-screen w-full flex-col items-center justify-center bg-transparent pointer-events-none select-none touch-none">
       <div className="pointer-events-auto">
         <StatusIndicator isInteractive={isInteractive} />
       </div>

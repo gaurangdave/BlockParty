@@ -2,6 +2,7 @@ import { useRef, useMemo, useState } from "react";
 import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
 import { useBox } from "@react-three/cannon";
 import * as THREE from "three";
+import { useSettingsStore } from "../store/useSettingsStore";
 
 // A simple deterministic pseudo-random generator based on an ID
 // or just simple random colors.
@@ -40,6 +41,7 @@ export function VoxelAvatar({
   enableRandomWalk = true,
 }: VoxelAvatarProps) {
   const { viewport } = useThree();
+  const isInteractive = useSettingsStore((state) => state.isInteractive);
   const [isDragging, setIsDragging] = useState(false);
 
   // Memoize randomized colors so they don't change on re-renders
@@ -76,6 +78,12 @@ export function VoxelAvatar({
     api.velocity.subscribe((v) => (velocity.current = v));
   }, [api.velocity]);
 
+  // Track position
+  const currentPos = useRef([0, 0, 0]);
+  useMemo(() => {
+    api.position.subscribe((p) => (currentPos.current = p));
+  }, [api.position]);
+
   useFrame((state) => {
     if (!internalGroupRef.current) return;
 
@@ -83,14 +91,28 @@ export function VoxelAvatar({
       // Map pointer to orthographic world coordinates
       const x = (state.pointer.x * viewport.width) / 2;
       const y = (state.pointer.y * viewport.height) / 2;
-      api.position.set(x, y, 0);
+      const floorY = -viewport.height / 2 + height / 2; // don't push through floor
+
+      api.position.set(x, Math.max(y, floorY), 0);
       api.velocity.set(0, 0, 0);
       api.angularVelocity.set(0, 0, 0);
 
       // Keep breathing animation paused while dragging
       internalGroupRef.current.position.y = 0;
+
+      // Add wobble effect
+      const t = state.clock.elapsedTime;
+      internalGroupRef.current.rotation.z = Math.sin(t * 15) * 0.1;
+
       return; // Skip walking/physics idle logic while dragging
     }
+
+    // Reset rotation if not dragging
+    internalGroupRef.current.rotation.z = THREE.MathUtils.lerp(
+      internalGroupRef.current.rotation.z,
+      0,
+      0.1,
+    );
 
     // Check if grounded (rough estimate: y velocity is near 0)
     const isGrounded = Math.abs(velocity.current[1]) < 0.1;
@@ -116,18 +138,38 @@ export function VoxelAvatar({
         if (Math.random() < 0.005) {
           // 0.5% chance per frame (~once every few seconds)
           // Hop upward slightly
+          const horizontalImpulse = (Math.random() - 0.5) * 2;
+
+          // Constrain movement if near edges
+          const newX = currentPos.current[0] + horizontalImpulse;
+          const bound = viewport.width / 2 - width;
+          const safeHorizontalImpulse =
+            newX > bound
+              ? -Math.abs(horizontalImpulse)
+              : newX < -bound
+                ? Math.abs(horizontalImpulse)
+                : horizontalImpulse;
+
           api.velocity.set(
-            velocity.current[0] + (Math.random() - 0.5) * 2, // hop left/right/forward/back
+            velocity.current[0] + safeHorizontalImpulse,
             3, // jump strength
-            velocity.current[2] + (Math.random() - 0.5) * 2,
+            0, // strict 2D plane for now
           );
         } else if (Math.random() < 0.01) {
           // 1% chance to just nudge
-          api.velocity.set(
-            (Math.random() - 0.5) * 2,
-            velocity.current[1],
-            (Math.random() - 0.5) * 2,
-          );
+          const horizontalNudge = (Math.random() - 0.5) * 2;
+
+          // Constrain movement if near edges
+          const newX = currentPos.current[0] + horizontalNudge;
+          const bound = viewport.width / 2 - width;
+          const safeHorizontalNudge =
+            newX > bound
+              ? -Math.abs(horizontalNudge)
+              : newX < -bound
+                ? Math.abs(horizontalNudge)
+                : horizontalNudge;
+
+          api.velocity.set(safeHorizontalNudge, velocity.current[1], 0);
         }
       }
     } else {
@@ -140,18 +182,40 @@ export function VoxelAvatar({
     }
   });
 
+  const gl = useThree((state) => state.gl);
+
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    console.log("👇 Pointer DOWN!", { isInteractive, pointerId: e.pointerId });
+    if (!isInteractive) return;
+
     e.stopPropagation();
+    try {
+      gl.domElement.setPointerCapture(e.pointerId);
+    } catch (err) {
+      console.warn("Failed capture", err);
+    }
+
     setIsDragging(true);
+    document.body.style.cursor = "grabbing";
+
     // @ts-ignore - setPointerCapture logic works on standard dom elements but fiber handles pointer capture cleanly via stopPropagation
     api.mass.set(0); // make kinematic
     api.velocity.set(0, 0, 0);
   };
 
   const handlePointerUp = (e: ThreeEvent<PointerEvent>) => {
+    console.log("☝️ Pointer UP!", { isDragging });
     e.stopPropagation();
+    if (isDragging) {
+      try {
+        gl.domElement.releasePointerCapture(e.pointerId);
+      } catch (err) {
+        console.warn("Failed release", err);
+      }
+    }
     setIsDragging(false);
     api.mass.set(1); // make dynamic
+    document.body.style.cursor = "grab";
   };
 
   return (
@@ -161,12 +225,13 @@ export function VoxelAvatar({
       onPointerUp={handlePointerUp}
       onPointerOver={(e) => {
         e.stopPropagation();
-        document.body.style.cursor = "grab";
+        document.body.style.cursor = isDragging ? "grabbing" : "grab";
       }}
       onPointerOut={(e) => {
         e.stopPropagation();
-        document.body.style.cursor = "auto";
-        handlePointerUp(e);
+        if (!isDragging) {
+          document.body.style.cursor = "auto";
+        }
       }}
     >
       <group ref={internalGroupRef}>
