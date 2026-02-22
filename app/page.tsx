@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import { useBlockParty } from "../src/hooks/useBlockParty";
 import StatusIndicator from "./components/StatusIndicator";
 import dynamic from "next/dynamic";
+import { ref, push, set } from "firebase/database";
+import { database } from "../src/lib/firebase";
 
 const Scene = dynamic(() => import("../src/components/Scene"), { ssr: false });
 
@@ -12,6 +14,20 @@ export default function Home() {
   const isAltPressedRef = useRef(false);
 
   console.log("🎨 Home component render, isInteractive:", isInteractive);
+
+  useEffect(() => {
+    const hasJoined = sessionStorage.getItem("hasJoinedBlockParty");
+    if (!hasJoined) {
+      sessionStorage.setItem("hasJoinedBlockParty", "true");
+      console.log("🚀 Dropping into the party!");
+      const usersRef = ref(database, "users");
+      const newUserRef = push(usersRef);
+      set(newUserRef, {
+        username: "Player",
+        position: [(Math.random() - 0.5) * 20, 15, (Math.random() - 0.5) * 5],
+      }).catch((err) => console.error("Failed to join party:", err));
+    }
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -58,15 +74,17 @@ export default function Home() {
   }, [toggleInteraction]);
 
   return (
-    <main className="flex min-h-screen w-full flex-col items-center justify-center bg-transparent">
-      <StatusIndicator isInteractive={isInteractive} />
+    <main className="flex min-h-screen w-full flex-col items-center justify-center bg-transparent pointer-events-none">
+      <div className="pointer-events-auto">
+        <StatusIndicator isInteractive={isInteractive} />
+      </div>
 
-      <div className="absolute inset-0 -z-10 overflow-hidden">
+      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-auto">
         <Scene />
       </div>
 
       {error && (
-        <div className="absolute top-16 rounded-xl border border-red-500/30 bg-black/80 px-4 py-2 text-center backdrop-blur-sm">
+        <div className="absolute top-16 rounded-xl border border-red-500/30 bg-black/80 px-4 py-2 text-center backdrop-blur-sm pointer-events-auto">
           <p className="text-xs text-red-400">Error: {error}</p>
         </div>
       )}

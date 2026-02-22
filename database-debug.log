@@ -2,3 +2,13 @@
 09:45:55.853 [main] INFO com.firebase.server.forge.App$ - Listening at 127.0.0.1:5003
 09:45:56.589 [NamespaceSystem-akka.actor.default-dispatcher-4] INFO com.firebase.core.namespace.NamespaceActor - clientcoach-fit-2025-default-rtdb successfully activated FBKV (SurveyIdle(0)) wait: 65ms, init: 0ms
 09:45:56.617 [NamespaceSystem-blocking-namespace-operation-dispatcher-6] INFO com.firebase.core.namespace.StateManager - Namespace clientcoach-fit-2025-default-rtdb status Active to Active
+10:08:02.171 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
+namespace demo-project, but the emulator is configured for clientcoach-fit-2025-default-rtdb. To 
+opt-out of single project mode add/set the singleProjectMode: false property in 
+the firebase.json emulators config. 
+10:08:02.194 [NamespaceSystem-akka.actor.default-dispatcher-10] INFO com.firebase.core.namespace.NamespaceActor - demo-project successfully activated FBKV (SurveyIdle(0)) wait: 7ms, init: 0ms
+10:09:26.715 [FirebaseWorkerPool-1-2] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
+namespace clientcoach-fit-2025, but the emulator is configured for demo-project,clientcoach-fit-2025-default-rtdb. To 
+opt-out of single project mode add/set the singleProjectMode: false property in 
+the firebase.json emulators config. 
+10:09:26.741 [NamespaceSystem-akka.actor.default-dispatcher-14] INFO com.firebase.core.namespace.NamespaceActor - clientcoach-fit-2025 successfully activated FBKV (SurveyIdle(0)) wait: 7ms, init: 0ms

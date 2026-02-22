@@ -1,5 +1,5 @@
-import { useRef, useMemo } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useRef, useMemo, useState } from "react";
+import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
 import { useBox } from "@react-three/cannon";
 import * as THREE from "three";
 
@@ -30,13 +30,18 @@ export interface VoxelAvatarProps {
     pants?: string;
     shoes?: string;
   };
+  enableRandomWalk?: boolean;
 }
 
 export function VoxelAvatar({
   id,
   position = [0, 5, 0],
   colorPalette,
+  enableRandomWalk = true,
 }: VoxelAvatarProps) {
+  const { viewport } = useThree();
+  const [isDragging, setIsDragging] = useState(false);
+
   // Memoize randomized colors so they don't change on re-renders
   const colors = useMemo(() => {
     const skin = colorPalette?.skin || "#ffccaa"; // default skin
@@ -59,6 +64,7 @@ export function VoxelAvatar({
     args: [width, height, depth],
     // Keep them upright for now (lock rotations) to behave more like characters
     fixedRotation: true,
+    allowSleep: false, // Prevent physics engine from putting grounded objects to sleep
   }));
 
   // Internal group to animate slightly for "breathing" and visual hop
@@ -73,6 +79,19 @@ export function VoxelAvatar({
   useFrame((state) => {
     if (!internalGroupRef.current) return;
 
+    if (isDragging) {
+      // Map pointer to orthographic world coordinates
+      const x = (state.pointer.x * viewport.width) / 2;
+      const y = (state.pointer.y * viewport.height) / 2;
+      api.position.set(x, y, 0);
+      api.velocity.set(0, 0, 0);
+      api.angularVelocity.set(0, 0, 0);
+
+      // Keep breathing animation paused while dragging
+      internalGroupRef.current.position.y = 0;
+      return; // Skip walking/physics idle logic while dragging
+    }
+
     // Check if grounded (rough estimate: y velocity is near 0)
     const isGrounded = Math.abs(velocity.current[1]) < 0.1;
 
@@ -80,7 +99,11 @@ export function VoxelAvatar({
       // 1. Breathing Animation (subtle vertical scale/position bounce)
       const t = state.clock.elapsedTime;
       // Breathe rate: based on ID so they don't all breathe sync
-      const phase = (typeof id === "number" ? id : 0) * 10;
+      const numericId =
+        typeof id === "number"
+          ? id
+          : id.charCodeAt(0) + id.charCodeAt(id.length - 1);
+      const phase = numericId * 10;
       const breathe = Math.sin(t * 2 + phase) * 0.02;
 
       // Apply slight scale and position bounce
@@ -89,21 +112,23 @@ export function VoxelAvatar({
 
       // 2. Occasional Hop / Walk
       // Random chance to move
-      if (Math.random() < 0.005) {
-        // 0.5% chance per frame (~once every few seconds)
-        // Hop upward slightly
-        api.velocity.set(
-          velocity.current[0] + (Math.random() - 0.5) * 2, // hop left/right/forward/back
-          3, // jump strength
-          velocity.current[2] + (Math.random() - 0.5) * 2,
-        );
-      } else if (Math.random() < 0.01) {
-        // 1% chance to just nudge
-        api.velocity.set(
-          (Math.random() - 0.5) * 2,
-          velocity.current[1],
-          (Math.random() - 0.5) * 2,
-        );
+      if (enableRandomWalk) {
+        if (Math.random() < 0.005) {
+          // 0.5% chance per frame (~once every few seconds)
+          // Hop upward slightly
+          api.velocity.set(
+            velocity.current[0] + (Math.random() - 0.5) * 2, // hop left/right/forward/back
+            3, // jump strength
+            velocity.current[2] + (Math.random() - 0.5) * 2,
+          );
+        } else if (Math.random() < 0.01) {
+          // 1% chance to just nudge
+          api.velocity.set(
+            (Math.random() - 0.5) * 2,
+            velocity.current[1],
+            (Math.random() - 0.5) * 2,
+          );
+        }
       }
     } else {
       // Reset breathing when falling
@@ -115,14 +140,60 @@ export function VoxelAvatar({
     }
   });
 
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    setIsDragging(true);
+    // @ts-ignore - setPointerCapture logic works on standard dom elements but fiber handles pointer capture cleanly via stopPropagation
+    api.mass.set(0); // make kinematic
+    api.velocity.set(0, 0, 0);
+  };
+
+  const handlePointerUp = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    setIsDragging(false);
+    api.mass.set(1); // make dynamic
+  };
+
   return (
-    <group ref={ref as any}>
+    <group
+      ref={ref as any}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "grab";
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "auto";
+        handlePointerUp(e);
+      }}
+    >
       <group ref={internalGroupRef}>
         {/* Head */}
-        <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
-          <boxGeometry args={[0.5, 0.5, 0.5]} />
-          <meshStandardMaterial color={colors.skin} />
-        </mesh>
+        <group position={[0, 0.75, 0]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[0.5, 0.5, 0.5]} />
+            <meshStandardMaterial color={colors.skin} />
+          </mesh>
+          {/* Left Eye */}
+          <mesh position={[-0.1, 0.05, 0.26]}>
+            <boxGeometry args={[0.08, 0.08, 0.02]} />
+            <meshStandardMaterial color="#111" />
+          </mesh>
+          {/* Right Eye */}
+          <mesh position={[0.1, 0.05, 0.26]}>
+            <boxGeometry args={[0.08, 0.08, 0.02]} />
+            <meshStandardMaterial color="#111" />
+          </mesh>
+          {/* Nose */}
+          <mesh position={[0, -0.05, 0.26]}>
+            <boxGeometry args={[0.08, 0.08, 0.04]} />
+            <meshStandardMaterial
+              color={getColorVariation(colors.skin, -0.1)}
+            />
+          </mesh>
+        </group>
 
         {/* Torso */}
         <mesh position={[0, 0.125, 0]} castShadow receiveShadow>

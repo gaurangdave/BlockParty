@@ -5,6 +5,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrthographicCamera, ContactShadows } from "@react-three/drei";
 import { Physics, usePlane } from "@react-three/cannon";
 import { VoxelAvatar } from "./VoxelAvatar";
+import { useBlockPartySync } from "../hooks/useBlockPartySync";
 
 function Floor() {
   const { viewport } = useThree();
@@ -44,31 +45,28 @@ function Floor() {
 }
 
 export default function Scene() {
-  const [blockies, setBlockies] = useState([{ id: 0, x: 0 }]);
-
-  const spawnBlocky = useCallback(() => {
-    setBlockies((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        // Random X between -10 and 10
-        x: (Math.random() - 0.5) * 20,
-      },
-    ]);
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space") {
-        spawnBlocky();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [spawnBlocky]);
+  const { activeUsers } = useBlockPartySync();
+  const [enableRandomWalk, setEnableRandomWalk] = useState(true);
 
   return (
-    <div style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      {/* UI Overlay for Toggle */}
+      <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 10 }}>
+        <button
+          onClick={() => setEnableRandomWalk((prev) => !prev)}
+          className="rounded-full bg-black/50 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-black/70 border border-white/10"
+        >
+          {enableRandomWalk ? "🚶 Random Walk: ON" : "🧍 Random Walk: OFF"}
+        </button>
+      </div>
+
       <Canvas shadows>
         <OrthographicCamera makeDefault position={[0, 0, 50]} zoom={50} />
 
@@ -83,11 +81,13 @@ export default function Scene() {
 
         <Physics>
           <Floor />
-          {blockies.map((blocky) => (
+          {activeUsers.map((user) => (
             <VoxelAvatar
-              key={blocky.id}
-              id={blocky.id}
-              position={[blocky.x, 15, 0]}
+              key={user.id}
+              id={user.id}
+              position={user.position}
+              colorPalette={user.colorPalette}
+              enableRandomWalk={enableRandomWalk}
             />
           ))}
         </Physics>

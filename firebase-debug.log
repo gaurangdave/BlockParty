@@ -146,3 +146,26 @@ Dev App Server is now running.
 └─────────────────────────┴───────────────┴─────────────────────┘
 Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
  
+[debug] [2026-02-22T18:04:12.724Z] Feb 22, 2026 10:04:12 A.M. com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
+INFO: Connected to new websocket client
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Feb 22, 2026 10:04:12 A.M. com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}
+[debug] [2026-02-22T18:08:02.173Z] 10:08:02.171 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
+namespace demo-project, but the emulator is configured for clientcoach-fit-2025-default-rtdb. To 
+opt-out of single project mode add/set the singleProjectMode: false property in 
+the firebase.json emulators config. 
+ {"metadata":{"emulator":{"name":"database"},"message":"10:08:02.171 [FirebaseWorkerPool-1-3] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested \nnamespace demo-project, but the emulator is configured for clientcoach-fit-2025-default-rtdb. To \nopt-out of single project mode add/set the singleProjectMode: false property in \nthe firebase.json emulators config. \n"}}
+[debug] [2026-02-22T18:08:02.195Z] 10:08:02.194 [NamespaceSystem-akka.actor.default-dispatcher-10] INFO com.firebase.core.namespace.NamespaceActor - demo-project successfully activated FBKV (SurveyIdle(0)) wait: 7ms, init: 0ms
+ {"metadata":{"emulator":{"name":"database"},"message":"10:08:02.194 [NamespaceSystem-akka.actor.default-dispatcher-10] INFO com.firebase.core.namespace.NamespaceActor - demo-project successfully activated FBKV (SurveyIdle(0)) wait: 7ms, init: 0ms\n"}}
+[debug] [2026-02-22T18:09:26.722Z] 10:09:26.715 [FirebaseWorkerPool-1-2] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested 
+namespace clientcoach-fit-2025, but the emulator is configured for demo-project,clientcoach-fit-2025-default-rtdb. To 
+opt-out of single project mode add/set the singleProjectMode: false property in 
+the firebase.json emulators config. 
+ {"metadata":{"emulator":{"name":"database"},"message":"10:09:26.715 [FirebaseWorkerPool-1-2] WARN com.firebase.core.persistence.backend.dummy.EmulatorMetadataPersistence - Multiple projectIds are not recommended in single project mode. Requested \nnamespace clientcoach-fit-2025, but the emulator is configured for demo-project,clientcoach-fit-2025-default-rtdb. To \nopt-out of single project mode add/set the singleProjectMode: false property in \nthe firebase.json emulators config. \n"}}
+[debug] [2026-02-22T18:09:26.741Z] 10:09:26.741 [NamespaceSystem-akka.actor.default-dispatcher-14] INFO com.firebase.core.namespace.NamespaceActor - clientcoach-fit-2025 successfully activated FBKV (SurveyIdle(0)) wait: 7ms, init: 0ms
+ {"metadata":{"emulator":{"name":"database"},"message":"10:09:26.741 [NamespaceSystem-akka.actor.default-dispatcher-14] INFO com.firebase.core.namespace.NamespaceActor - clientcoach-fit-2025 successfully activated FBKV (SurveyIdle(0)) wait: 7ms, init: 0ms\n"}}
+[debug] [2026-02-22T18:09:33.133Z] Feb 22, 2026 10:09:33 A.M. com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed
+INFO: Websocket client disconnected
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Feb 22, 2026 10:09:33 A.M. com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler channelClosed\nINFO: Websocket client disconnected\n"}}
+[debug] [2026-02-22T18:09:33.285Z] Feb 22, 2026 10:09:33 A.M. com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
+INFO: Connected to new websocket client
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Feb 22, 2026 10:09:33 A.M. com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}
