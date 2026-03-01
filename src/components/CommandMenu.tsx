@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Html } from "@react-three/drei";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, Palette, Settings } from "lucide-react";
 import { useCommandCenterStore } from "../store/useCommandCenterStore";
 import { useSettingsStore } from "../store/useSettingsStore";
@@ -12,6 +12,9 @@ export function CommandMenu() {
     (state) => state.togglePartyHidden,
   );
   const setMenuOpen = useCommandCenterStore((state) => state.setMenuOpen);
+  const setCustomizerOpen = useCommandCenterStore(
+    (state) => state.setCustomizerOpen,
+  );
 
   const movementEnabled = useSettingsStore((state) => state.movementEnabled);
   const setMovementEnabled = useSettingsStore(
@@ -28,6 +31,11 @@ export function CommandMenu() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [setMenuOpen]);
+
+  const handleCustomize = () => {
+    setMenuOpen(false);
+    setCustomizerOpen(true);
+  };
 
   return (
     <Html
@@ -100,11 +108,13 @@ export function CommandMenu() {
 
         <div className="mx-2 h-px bg-white/10" />
 
+        {/* Customize Avatar */}
         <MenuButton
           icon={<Palette size={16} />}
           label="Customize Avatar"
-          subtitle="Coming Soon"
-          disabled
+          subtitle="Pick your colors"
+          accent="#a855f7"
+          onClick={handleCustomize}
         />
 
         <MenuButton

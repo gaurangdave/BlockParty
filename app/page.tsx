@@ -8,6 +8,7 @@ import dynamic from "next/dynamic";
 import { ref, push, set } from "firebase/database";
 import { database } from "../src/lib/firebase";
 import { useCommandCenterStore } from "../src/store/useCommandCenterStore";
+import { AvatarCustomizer } from "../src/components/AvatarCustomizer";
 
 const Scene = dynamic(() => import("../src/components/Scene"), { ssr: false });
 
@@ -95,6 +96,9 @@ export default function Home() {
           <p className="text-xs text-red-400">Error: {error}</p>
         </div>
       )}
+
+      {/* Avatar Customizer Overlay */}
+      <AvatarCustomizer />
     </main>
   );
 }

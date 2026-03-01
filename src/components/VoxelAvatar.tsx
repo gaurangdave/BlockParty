@@ -6,6 +6,7 @@ import { Html } from "@react-three/drei";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useMessagesStore } from "../store/useMessagesStore";
 import { useCommandCenterStore } from "../store/useCommandCenterStore";
+import { useAppearanceStore } from "../store/useAppearanceStore";
 import { ComicBubble } from "./ComicBubble";
 import { CommandMenu } from "./CommandMenu";
 
@@ -35,6 +36,7 @@ export interface VoxelAvatarProps {
     shirt?: string;
     pants?: string;
     shoes?: string;
+    hair?: string;
   };
   enableRandomWalk?: boolean;
   isSelf?: boolean;
@@ -62,17 +64,32 @@ export function VoxelAvatar({
   const setMenuOpen = useCommandCenterStore((state) => state.setMenuOpen);
   const isPartyHidden = useCommandCenterStore((state) => state.isPartyHidden);
 
+  // Appearance store – only used for self avatar
+  const skinData = useAppearanceStore((state) => state.skinData);
+  const isCustomizing = useAppearanceStore((state) => state.isCustomizing);
+
   // Track message count for jump notification
   const prevMessageCount = useRef(Object.keys(messages).length);
 
-  // Memoize randomized colors so they don't change on re-renders
+  // Memoize colors: for self, use appearance store skinData; for others, use props
   const colors = useMemo(() => {
-    const skin = colorPalette?.skin || "#ffccaa"; // default skin
+    if (isSelf && skinData) {
+      return {
+        skin: skinData.skin,
+        shirt: skinData.top,
+        pants: skinData.bottom,
+        shoes: skinData.accent,
+        hair: skinData.hair,
+      };
+    }
+
+    const skin = colorPalette?.skin || "#ffccaa";
     const shirt = colorPalette?.shirt || getRandomColor();
     const pants = colorPalette?.pants || getRandomColor();
-    const shoes = colorPalette?.shoes || getColorVariation(pants, -0.2); // darker pants color for shoes
-    return { skin, shirt, pants, shoes };
-  }, [colorPalette]);
+    const shoes = colorPalette?.shoes || getColorVariation(pants, -0.2);
+    const hair = colorPalette?.hair || "#3B2F2F";
+    return { skin, shirt, pants, shoes, hair };
+  }, [colorPalette, isSelf, skinData]);
 
   // Overall bounds for the physics collider
   const width = 1;
@@ -126,6 +143,21 @@ export function VoxelAvatar({
     // Rotate the star indicator for self avatar
     if (starGroupRef.current) {
       starGroupRef.current.rotation.y = state.clock.elapsedTime * 1.5;
+    }
+
+    // ── Customizing animation: spin the avatar ──
+    if (isSelf && isCustomizing) {
+      internalGroupRef.current.rotation.y = state.clock.elapsedTime * 3; // smooth spin
+      return; // skip all other movement while customizing
+    }
+
+    // Reset Y rotation when not customizing
+    if (isSelf && !isCustomizing) {
+      internalGroupRef.current.rotation.y = THREE.MathUtils.lerp(
+        internalGroupRef.current.rotation.y,
+        0,
+        0.1,
+      );
     }
 
     if (isDragging) {
@@ -303,11 +335,37 @@ export function VoxelAvatar({
         {isSelf && (
           <pointLight
             position={[0, 0.5, 1]}
-            color="#fbbf24"
-            intensity={1.5}
-            distance={4}
+            color={isCustomizing ? "#a855f7" : "#fbbf24"}
+            intensity={isCustomizing ? 3 : 1.5}
+            distance={isCustomizing ? 6 : 4}
             decay={2}
           />
+        )}
+
+        {/* ─── Customizing Status Indicator ─── */}
+        {isSelf && isCustomizing && (
+          <Html position={[0, 1.8, 0]} center zIndexRange={[50, 0]}>
+            <div
+              className="pointer-events-none select-none"
+              style={{
+                fontSize: "11px",
+                color: "#a855f7",
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 700,
+                textShadow: "0 0 8px rgba(168, 85, 247, 0.6)",
+                animation: "pulse-text 1.5s ease-in-out infinite",
+                whiteSpace: "nowrap",
+              }}
+            >
+              ✨ Analyzing...
+            </div>
+            <style>{`
+              @keyframes pulse-text {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.4; }
+              }
+            `}</style>
+          </Html>
         )}
 
         {/* ─── Command Menu (Self Only) ─── */}
@@ -330,6 +388,12 @@ export function VoxelAvatar({
             onClose={() => setIsBubbleOpen(false)}
           />
         )}
+
+        {/* ─── Hair ─── */}
+        <mesh position={[0, 1.1, -0.02]} castShadow receiveShadow>
+          <boxGeometry args={[0.52, 0.18, 0.54]} />
+          <meshStandardMaterial color={colors.hair} />
+        </mesh>
 
         {/* Head */}
         <group position={[0, 0.75, 0]}>

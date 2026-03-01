@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { ref, onChildAdded, DataSnapshot } from "firebase/database";
+import {
+  ref,
+  onChildAdded,
+  onChildChanged,
+  DataSnapshot,
+} from "firebase/database";
 import { database } from "../lib/firebase";
 
 export interface UserData {
@@ -10,6 +15,7 @@ export interface UserData {
     shirt?: string;
     pants?: string;
     shoes?: string;
+    hair?: string;
   };
   position: [number, number, number];
 }
@@ -22,7 +28,7 @@ export function useBlockPartySync() {
     const usersRef = ref(database, "users");
 
     // Listen for new child items added to the /users node
-    const unsubscribe = onChildAdded(usersRef, (data: DataSnapshot) => {
+    const unsubscribeAdded = onChildAdded(usersRef, (data: DataSnapshot) => {
       const val = data.val();
       if (!val) return;
 
@@ -43,9 +49,33 @@ export function useBlockPartySync() {
       });
     });
 
+    // Listen for changes to existing children (e.g. colorPalette updates)
+    const unsubscribeChanged = onChildChanged(
+      usersRef,
+      (data: DataSnapshot) => {
+        const val = data.val();
+        if (!val) return;
+
+        const changedId = data.key as string;
+        console.log("🔄 User data changed:", changedId, val);
+
+        setActiveUsers((prev) =>
+          prev.map((user) => {
+            if (user.id !== changedId) return user;
+            return {
+              ...user,
+              username: val.username || user.username,
+              colorPalette: val.colorPalette || user.colorPalette,
+            };
+          }),
+        );
+      },
+    );
+
     return () => {
-      console.log("🧹 Tearing down Firebase RTDB listener");
-      unsubscribe();
+      console.log("🧹 Tearing down Firebase RTDB listeners");
+      unsubscribeAdded();
+      unsubscribeChanged();
     };
   }, []);
 
