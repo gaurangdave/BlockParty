@@ -5,9 +5,10 @@ import { useBlockParty } from "../src/hooks/useBlockParty";
 import { useSettingsStore } from "../src/store/useSettingsStore";
 import StatusIndicator from "./components/StatusIndicator";
 import dynamic from "next/dynamic";
-import { ref, push, set } from "firebase/database";
+import { ref, push, set, get } from "firebase/database";
 import { database } from "../src/lib/firebase";
 import { useCommandCenterStore } from "../src/store/useCommandCenterStore";
+import { useAppearanceStore } from "../src/store/useAppearanceStore";
 import { AvatarCustomizer } from "../src/components/AvatarCustomizer";
 
 const Scene = dynamic(() => import("../src/components/Scene"), { ssr: false });
@@ -20,21 +21,52 @@ export default function Home() {
   console.log("🎨 Home component render, isInteractive:", isInteractive);
 
   useEffect(() => {
-    const hasJoined = sessionStorage.getItem("hasJoinedBlockParty");
-    if (!hasJoined) {
-      sessionStorage.setItem("hasJoinedBlockParty", "true");
-      console.log("🚀 Dropping into the party!");
-      const usersRef = ref(database, "users");
-      const newUserRef = push(usersRef);
-      // Store the self user's Firebase key in the Command Center store
-      if (newUserRef.key) {
-        useCommandCenterStore.getState().setSelfUserId(newUserRef.key);
+    const STORAGE_KEY = "blockPartyUserId";
+
+    async function joinOrRejoin() {
+      const existingId = localStorage.getItem(STORAGE_KEY);
+
+      if (existingId) {
+        // ─── Returning user: reuse existing Firebase key ───
+        console.log("🔄 Returning user, reusing key:", existingId);
+        useCommandCenterStore.getState().setSelfUserId(existingId);
+
+        // Load saved palette from RTDB into appearance store
+        try {
+          const snapshot = await get(ref(database, `users/${existingId}`));
+          const val = snapshot.val();
+          if (val?.colorPalette) {
+            const cp = val.colorPalette;
+            useAppearanceStore.getState().setSkinData({
+              hair: cp.hair || "#3B2F2F",
+              skin: cp.skin || "#ffccaa",
+              top: cp.shirt || "#2E86C1",
+              bottom: cp.pants || "#1B4F72",
+              accent: cp.shoes || "#E74C3C",
+            });
+            console.log("🎨 Loaded saved palette from RTDB:", cp);
+          }
+        } catch (err) {
+          console.warn("Could not load saved palette:", err);
+        }
+      } else {
+        // ─── First-time user: create a new entry ───
+        console.log("🚀 First-time user, dropping into the party!");
+        const usersRef = ref(database, "users");
+        const newUserRef = push(usersRef);
+        const newKey = newUserRef.key!;
+
+        localStorage.setItem(STORAGE_KEY, newKey);
+        useCommandCenterStore.getState().setSelfUserId(newKey);
+
+        await set(newUserRef, {
+          username: "Player",
+          position: [(Math.random() - 0.5) * 20, 15, (Math.random() - 0.5) * 5],
+        }).catch((err) => console.error("Failed to join party:", err));
       }
-      set(newUserRef, {
-        username: "Player",
-        position: [(Math.random() - 0.5) * 20, 15, (Math.random() - 0.5) * 5],
-      }).catch((err) => console.error("Failed to join party:", err));
     }
+
+    joinOrRejoin();
   }, []);
 
   useEffect(() => {
