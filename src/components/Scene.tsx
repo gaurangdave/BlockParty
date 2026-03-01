@@ -7,15 +7,12 @@ import { Physics, usePlane } from "@react-three/cannon";
 import { VoxelAvatar } from "./VoxelAvatar";
 import { useBlockPartySync } from "../hooks/useBlockPartySync";
 import { useSettingsStore } from "../store/useSettingsStore";
+import { useCommandCenterStore } from "../store/useCommandCenterStore";
 import { useFirebaseMessages } from "../hooks/useFirebaseMessages";
 
 function Floor() {
   const { viewport } = useThree();
 
-  // The floor alignment at the bottom:
-  // For perspective: Height = 2 * tan(FOV/2) * Distance
-  // For orthographic: Height is directly given by top/bottom bounds
-  // R3F's viewport.height handles this dynamically on resize for both!
   const floorY = -viewport.height / 2;
 
   const [ref, api] = usePlane(() => ({
@@ -50,9 +47,7 @@ export default function Scene() {
   useFirebaseMessages(); // Initialize messages listener
   const { activeUsers } = useBlockPartySync();
   const movementEnabled = useSettingsStore((state) => state.movementEnabled);
-  const setMovementEnabled = useSettingsStore(
-    (state) => state.setMovementEnabled,
-  );
+  const selfUserId = useCommandCenterStore((state) => state.selfUserId);
 
   return (
     <div
@@ -63,16 +58,6 @@ export default function Scene() {
         position: "relative",
       }}
     >
-      {/* UI Overlay for Toggle */}
-      <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 10 }}>
-        <button
-          onClick={() => setMovementEnabled(!movementEnabled)}
-          className="rounded-full bg-black/50 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-black/70 border border-white/10"
-        >
-          {movementEnabled ? "🚶 Random Walk: ON" : "🧍 Random Walk: OFF"}
-        </button>
-      </div>
-
       <Canvas shadows>
         <OrthographicCamera makeDefault position={[0, 0, 50]} zoom={50} />
 
@@ -94,6 +79,7 @@ export default function Scene() {
               position={user.position}
               colorPalette={user.colorPalette}
               enableRandomWalk={movementEnabled}
+              isSelf={user.id === selfUserId}
             />
           ))}
         </Physics>

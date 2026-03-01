@@ -7,6 +7,7 @@ import StatusIndicator from "./components/StatusIndicator";
 import dynamic from "next/dynamic";
 import { ref, push, set } from "firebase/database";
 import { database } from "../src/lib/firebase";
+import { useCommandCenterStore } from "../src/store/useCommandCenterStore";
 
 const Scene = dynamic(() => import("../src/components/Scene"), { ssr: false });
 
@@ -24,6 +25,10 @@ export default function Home() {
       console.log("🚀 Dropping into the party!");
       const usersRef = ref(database, "users");
       const newUserRef = push(usersRef);
+      // Store the self user's Firebase key in the Command Center store
+      if (newUserRef.key) {
+        useCommandCenterStore.getState().setSelfUserId(newUserRef.key);
+      }
       set(newUserRef, {
         username: "Player",
         position: [(Math.random() - 0.5) * 20, 15, (Math.random() - 0.5) * 5],

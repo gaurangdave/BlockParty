@@ -1,11 +1,13 @@
-import { useRef, useMemo, useState } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import { useFrame, useThree, ThreeEvent } from "@react-three/fiber";
 import { useBox } from "@react-three/cannon";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { useSettingsStore } from "../store/useSettingsStore";
 import { useMessagesStore } from "../store/useMessagesStore";
+import { useCommandCenterStore } from "../store/useCommandCenterStore";
 import { ComicBubble } from "./ComicBubble";
+import { CommandMenu } from "./CommandMenu";
 
 // A simple deterministic pseudo-random generator based on an ID
 // or just simple random colors.
@@ -35,6 +37,7 @@ export interface VoxelAvatarProps {
     shoes?: string;
   };
   enableRandomWalk?: boolean;
+  isSelf?: boolean;
 }
 
 export function VoxelAvatar({
@@ -42,6 +45,7 @@ export function VoxelAvatar({
   position = [0, 5, 0],
   colorPalette,
   enableRandomWalk = true,
+  isSelf = false,
 }: VoxelAvatarProps) {
   const { viewport } = useThree();
   const isInteractive = useSettingsStore((state) => state.isInteractive);
@@ -53,6 +57,14 @@ export function VoxelAvatar({
   const message = messages[userIdStr];
   const hasUnread = message ? !message.isRead : false;
 
+  // Command Center state
+  const isMenuOpen = useCommandCenterStore((state) => state.isMenuOpen);
+  const setMenuOpen = useCommandCenterStore((state) => state.setMenuOpen);
+  const isPartyHidden = useCommandCenterStore((state) => state.isPartyHidden);
+
+  // Track message count for jump notification
+  const prevMessageCount = useRef(Object.keys(messages).length);
+
   // Memoize randomized colors so they don't change on re-renders
   const colors = useMemo(() => {
     const skin = colorPalette?.skin || "#ffccaa"; // default skin
@@ -63,8 +75,6 @@ export function VoxelAvatar({
   }, [colorPalette]);
 
   // Overall bounds for the physics collider
-  // A Minecraft character is 1 unit wide, 2 units high, 0.5 units deep roughly.
-  // We'll use 1 x 2 x 0.5 for the bounds.
   const width = 1;
   const height = 2;
   const depth = 0.5;
@@ -73,13 +83,15 @@ export function VoxelAvatar({
     mass: 1,
     position,
     args: [width, height, depth],
-    // Keep them upright for now (lock rotations) to behave more like characters
     fixedRotation: true,
-    allowSleep: false, // Prevent physics engine from putting grounded objects to sleep
+    allowSleep: false,
   }));
 
   // Internal group to animate slightly for "breathing" and visual hop
   const internalGroupRef = useRef<THREE.Group>(null);
+
+  // Star rotation ref (for animated spinning star)
+  const starGroupRef = useRef<THREE.Group>(null);
 
   // Track velocity
   const velocity = useRef([0, 0, 0]);
@@ -93,27 +105,46 @@ export function VoxelAvatar({
     api.position.subscribe((p) => (currentPos.current = p));
   }, [api.position]);
 
+  // Jump notification: when party is hidden and a new message arrives, make self avatar hop
+  useEffect(() => {
+    if (!isSelf || !isPartyHidden) {
+      prevMessageCount.current = Object.keys(messages).length;
+      return;
+    }
+
+    const currentCount = Object.keys(messages).length;
+    if (currentCount > prevMessageCount.current) {
+      // New message arrived while party is hidden — hop!
+      api.velocity.set(0, 5, 0);
+    }
+    prevMessageCount.current = currentCount;
+  }, [messages, isSelf, isPartyHidden, api]);
+
   useFrame((state) => {
     if (!internalGroupRef.current) return;
+
+    // Rotate the star indicator for self avatar
+    if (starGroupRef.current) {
+      starGroupRef.current.rotation.y = state.clock.elapsedTime * 1.5;
+    }
 
     if (isDragging) {
       // Map pointer to orthographic world coordinates
       const x = (state.pointer.x * viewport.width) / 2;
       const y = (state.pointer.y * viewport.height) / 2;
-      const floorY = -viewport.height / 2 + height / 2; // don't push through floor
+      const floorY = -viewport.height / 2 + height / 2;
 
       api.position.set(x, Math.max(y, floorY), 0);
       api.velocity.set(0, 0, 0);
       api.angularVelocity.set(0, 0, 0);
 
-      // Keep breathing animation paused while dragging
       internalGroupRef.current.position.y = 0;
 
       // Add wobble effect
       const t = state.clock.elapsedTime;
       internalGroupRef.current.rotation.z = Math.sin(t * 15) * 0.1;
 
-      return; // Skip walking/physics idle logic while dragging
+      return;
     }
 
     // Reset rotation if not dragging
@@ -123,13 +154,11 @@ export function VoxelAvatar({
       0.1,
     );
 
-    // Check if grounded (rough estimate: y velocity is near 0)
+    // Check if grounded
     const isGrounded = Math.abs(velocity.current[1]) < 0.1;
 
     if (isGrounded) {
-      // 1. Breathing Animation (subtle vertical scale/position bounce)
       const t = state.clock.elapsedTime;
-      // Breathe rate: based on ID so they don't all breathe sync
       const numericId =
         typeof id === "number"
           ? id
@@ -137,19 +166,11 @@ export function VoxelAvatar({
       const phase = numericId * 10;
       const breathe = Math.sin(t * 2 + phase) * 0.02;
 
-      // Apply slight scale and position bounce
       internalGroupRef.current.position.y = breathe;
-      // Arms could swing slightly? We could do more complex stuff, but simple is good for now.
 
-      // 2. Occasional Hop / Walk
-      // Random chance to move
-      if (enableRandomWalk && !isBubbleOpen) {
+      if (enableRandomWalk && !isBubbleOpen && !(isSelf && isMenuOpen)) {
         if (Math.random() < 0.005) {
-          // 0.5% chance per frame (~once every few seconds)
-          // Hop upward slightly
           const horizontalImpulse = (Math.random() - 0.5) * 2;
-
-          // Constrain movement if near edges
           const newX = currentPos.current[0] + horizontalImpulse;
           const bound = viewport.width / 2 - width;
           const safeHorizontalImpulse =
@@ -159,16 +180,9 @@ export function VoxelAvatar({
                 ? Math.abs(horizontalImpulse)
                 : horizontalImpulse;
 
-          api.velocity.set(
-            velocity.current[0] + safeHorizontalImpulse,
-            3, // jump strength
-            0, // strict 2D plane for now
-          );
+          api.velocity.set(velocity.current[0] + safeHorizontalImpulse, 3, 0);
         } else if (Math.random() < 0.01) {
-          // 1% chance to just nudge
           const horizontalNudge = (Math.random() - 0.5) * 2;
-
-          // Constrain movement if near edges
           const newX = currentPos.current[0] + horizontalNudge;
           const bound = viewport.width / 2 - width;
           const safeHorizontalNudge =
@@ -182,7 +196,6 @@ export function VoxelAvatar({
         }
       }
     } else {
-      // Reset breathing when falling
       internalGroupRef.current.position.y = THREE.MathUtils.lerp(
         internalGroupRef.current.position.y,
         0,
@@ -194,7 +207,6 @@ export function VoxelAvatar({
   const gl = useThree((state) => state.gl);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
-    console.log("👇 Pointer DOWN!", { isInteractive, pointerId: e.pointerId });
     if (!isInteractive) return;
 
     e.stopPropagation();
@@ -207,13 +219,12 @@ export function VoxelAvatar({
     setIsDragging(true);
     document.body.style.cursor = "grabbing";
 
-    // @ts-ignore - setPointerCapture logic works on standard dom elements but fiber handles pointer capture cleanly via stopPropagation
+    // @ts-ignore
     api.mass.set(0); // make kinematic
     api.velocity.set(0, 0, 0);
   };
 
   const handlePointerUp = (e: ThreeEvent<PointerEvent>) => {
-    console.log("☝️ Pointer UP!", { isDragging });
     e.stopPropagation();
     if (isDragging) {
       try {
@@ -230,15 +241,25 @@ export function VoxelAvatar({
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     if (!isInteractive) return;
     e.stopPropagation();
+
     // Use delta to distinguish between click and drag
-    if (e.delta <= 2 && message) {
-      setIsBubbleOpen(true);
+    if (e.delta <= 2) {
+      if (isSelf) {
+        // Toggle the command menu for self avatar
+        setMenuOpen(!isMenuOpen);
+      } else if (message) {
+        setIsBubbleOpen(true);
+      }
     }
   };
+
+  // If party is hidden and this is NOT self, hide visually but keep physics body alive
+  const isHidden = isPartyHidden && !isSelf;
 
   return (
     <group
       ref={ref as any}
+      visible={!isHidden}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onClick={handleClick}
@@ -254,8 +275,46 @@ export function VoxelAvatar({
       }}
     >
       <group ref={internalGroupRef}>
+        {/* ─── Self Avatar: Star Indicator ─── */}
+        {isSelf && (
+          <group ref={starGroupRef} position={[0, 1.35, 0]}>
+            <Html center zIndexRange={[50, 0]}>
+              <div
+                className="pointer-events-none select-none"
+                style={{
+                  fontSize: "18px",
+                  filter: "drop-shadow(0 0 6px rgba(251, 191, 36, 0.8))",
+                  animation: "float 2s ease-in-out infinite",
+                }}
+              >
+                ⭐
+              </div>
+              <style>{`
+                @keyframes float {
+                  0%, 100% { transform: translateY(0px); }
+                  50% { transform: translateY(-4px); }
+                }
+              `}</style>
+            </Html>
+          </group>
+        )}
+
+        {/* ─── Self Avatar: Glow Light ─── */}
+        {isSelf && (
+          <pointLight
+            position={[0, 0.5, 1]}
+            color="#fbbf24"
+            intensity={1.5}
+            distance={4}
+            decay={2}
+          />
+        )}
+
+        {/* ─── Command Menu (Self Only) ─── */}
+        {isSelf && isMenuOpen && <CommandMenu />}
+
         {/* Floating Notification */}
-        {hasUnread && !isBubbleOpen && (
+        {hasUnread && !isBubbleOpen && !isSelf && (
           <Html position={[0, 1.2, 0]} center zIndexRange={[50, 0]}>
             <div className="animate-bounce bg-yellow-400 text-black font-extrabold border-2 border-black rounded-full w-6 h-6 flex items-center justify-center pointer-events-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] text-sm">
               !
